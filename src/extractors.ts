@@ -2,6 +2,7 @@
 import * as core from "@actions/core";
 import * as toolcache from "@actions/tool-cache";
 import * as github from "@actions/github";
+import { getRequiredInput } from "./actions-util";
 
 // Trusted organizations for CodeQL extractors.
 export const TRUSTED_ORGANIZATIONS = [
@@ -99,7 +100,7 @@ export async function getExtractors(input?: string | undefined, token?: string |
   if (input !== undefined && input !== "") {
     let extractors = parseExtractors(input);
     extractors.forEach((extractor) => {
-        downloadExtractor(extractor, token || "");
+        downloadExtractor(extractor, token || getRequiredInput("token"));
     });
     return extractors;
   }
