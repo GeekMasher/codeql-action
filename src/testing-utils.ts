@@ -315,6 +315,7 @@ export function createTestConfig(overrides: Partial<Config>): Config {
     {
       languages: [],
       buildMode: undefined,
+      extractors: [],
       originalUserInput: {},
       tempDir: "",
       codeQLCmd: "",

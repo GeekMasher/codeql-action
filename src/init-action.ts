@@ -273,6 +273,7 @@ async function run() {
         languagesInput: getOptionalInput("languages"),
         queriesInput: getOptionalInput("queries"),
         packsInput: getOptionalInput("packs"),
+        extractorsInput: getOptionalInput("extractors"),
         buildModeInput: getOptionalInput("build-mode"),
         configFile: getOptionalInput("config-file"),
         dbLocation: getOptionalInput("db-location"),

@@ -46,6 +46,13 @@ inputs:
     description: GitHub token to use for authenticating with this instance of GitHub. To download custom packs from multiple registries, use the registries input.
     default: ${{ github.token }}
     required: false
+  extractors:
+    description: >-
+      Comma-separated list of CodeQL extractors to be installed ready to be used by CodeQL from external repositories.
+      The format is `{owner}/codeql-extractor-{extractor_name}[@version]`.
+
+      Extractors are only allowed from trusted organizations and repositories prefixed with `codeql-extractor-`.
+    required: false
   registries:
     description: |
       Use this input only when you need to download CodeQL packages from another instance of GitHub. If you only need to download packages from this GitHub instance, use the token input instead.

@@ -47,6 +47,7 @@ function createTestInitConfigInputs(
       languagesInput: undefined,
       queriesInput: undefined,
       packsInput: undefined,
+      extractorsInput: undefined,
       configFile: undefined,
       dbLocation: undefined,
       configInput: undefined,
@@ -330,6 +331,7 @@ test("load non-empty input", async (t) => {
     const expectedConfig: configUtils.Config = {
       languages: [Language.javascript],
       buildMode: BuildMode.None,
+      extractors: [],
       originalUserInput: {
         name: "my config",
         "disable-default-queries": true,

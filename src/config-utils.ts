@@ -19,6 +19,7 @@ import {
   ConfigurationError,
   BuildMode,
 } from "./util";
+import { Extractor, getExtractors } from "./extractors";
 
 // Property names from the user-supplied config file.
 
@@ -86,6 +87,10 @@ export interface Config {
    * Build mode, if set. Currently only a single build mode is supported per job.
    */
   buildMode: BuildMode | undefined;
+  /**
+   * External extractors to use for analysing code.
+   */
+  extractors: Extractor[];
   /**
    * A unaltered copy of the original user input.
    * Mainly intended to be used for status reporting.
@@ -402,6 +407,7 @@ export interface InitConfigInputs {
   languagesInput: string | undefined;
   queriesInput: string | undefined;
   packsInput: string | undefined;
+  extractorsInput: string | undefined;
   configFile: string | undefined;
   dbLocation: string | undefined;
   configInput: string | undefined;
@@ -436,6 +442,7 @@ export async function getDefaultConfig({
   languagesInput,
   queriesInput,
   packsInput,
+  extractorsInput,
   buildModeInput,
   dbLocation,
   trapCachingEnabled,
@@ -449,6 +456,9 @@ export async function getDefaultConfig({
   features,
   logger,
 }: GetDefaultConfigInputs): Promise<Config> {
+  // This has to be done before languages are loaded
+  const extractors = await getExtractors(extractorsInput || "");
+
   const languages = await getLanguages(
     codeql,
     languagesInput,
@@ -478,6 +488,7 @@ export async function getDefaultConfig({
 
   return {
     languages,
+    extractors,
     buildMode,
     originalUserInput: {},
     tempDir,
@@ -519,6 +530,7 @@ async function loadConfig({
   languagesInput,
   queriesInput,
   packsInput,
+  extractorsInput,
   buildModeInput,
   configFile,
   dbLocation,
@@ -553,6 +565,8 @@ async function loadConfig({
     parsedYAML = await getRemoteConfig(configFile, apiDetails);
   }
 
+  const extractors = await getExtractors(extractorsInput || "");
+
   const languages = await getLanguages(
     codeql,
     languagesInput,
@@ -583,6 +597,7 @@ async function loadConfig({
   return {
     languages,
     buildMode,
+    extractors,
     originalUserInput: parsedYAML,
     tempDir,
     codeQLCmd: codeql.getPath(),
