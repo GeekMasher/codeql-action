@@ -8,6 +8,8 @@ export enum Language {
   python = "python",
   ruby = "ruby",
   swift = "swift",
+  // External / Community languages
+  community = "community",
 }
 
 // Additional names for languages

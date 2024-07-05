@@ -1,30 +1,28 @@
-
 import * as core from "@actions/core";
 import * as toolcache from "@actions/tool-cache";
 import * as github from "@actions/github";
 import { getRequiredInput } from "./actions-util";
+import { Logger, getActionsLogger } from "./logging";
+import { CodeQL } from "./codeql";
+import { Language } from "./languages";
 
 // Trusted organizations for CodeQL extractors.
-export const TRUSTED_ORGANIZATIONS = [
-  "github",
-  "codeql",
-  "advanced-security",
-];
+export const TRUSTED_ORGANIZATIONS = ["github", "codeql", "advanced-security"];
 
 /**
  * Extractors information.
  */
 export interface Extractor {
-    // Organization name.
-    organization: string;
-    // Repository name.
-    repository: string;
-    // Version.
-    version?: undefined | string;
-    // GitHub Instance (unused for now)
-    instance?: undefined | string;
-    // Path to the extractor.
-    path?: string;
+  // Organization name.
+  organization: string;
+  // Repository name.
+  repository: string;
+  // Path to the extractor.
+  path: string;
+  // Version.
+  version?: undefined | string;
+  // GitHub Instance (unused for now)
+  instance?: undefined | string;
 }
 
 /**
@@ -33,74 +31,99 @@ export interface Extractor {
  * @returns Extractor[]
  */
 export function parseExtractors(input: string): Extractor[] {
-    let result: Extractor[] = [];
+  let result: Extractor[] = [];
 
-    if (input === undefined || input === "") {
-        return result;
-    }
-
-    // Split the input string by comma.
-    input.trim().split(",").forEach((extractor_input) => {
-        let input = extractor_input.trim();
-        if (input === "") {
-          return;
-        }
-
-        // Global
-        let regex =
-          /^([a-zA-Z0-9-_]+)\/(codeql-extractor-[a-zA-Z0-9-_]+)(@[a-zA-Z0-9-_\.\/]*)?$/g;
-        let parts = regex.exec(input);
-
-        if (parts === null) {
-            throw new Error(
-              `Invalid extractor format of 'owner/repo[@version]': ${input} :: ${parts}`,
-            );
-        }
-        let extractor: Extractor;
-
-        if (parts.length === 3) {
-            extractor = {
-              organization: parts[1],
-              repository: parts[2],
-            };
-        } else if (parts.length === 4) {
-            let version: string | undefined = parts[3] == undefined ? undefined : parts[3].replace("@", "");
-            // If no version is provided, set it to undefined.
-            if (version === "") {
-              version = undefined;
-            }
-            extractor = {
-              organization: parts[1],
-              repository: parts[2],
-              version,
-            };
-        } else {
-            throw new Error(
-              `Invalid extractor format of "owner/repo[@version]": "${parts}"`,
-            );
-        }
-
-        // Check if the organization is trusted.
-        if (!TRUSTED_ORGANIZATIONS.includes(extractor.organization)) {
-            throw new Error(`Organization "${extractor.organization}" is not trusted`);
-        }
-    
-        result.push(extractor);
-    });
+  if (input === undefined || input === "") {
     return result;
+  }
+
+  // Split the input string by comma.
+  input
+    .trim()
+    .split(",")
+    .forEach((extractor_input) => {
+      let input = extractor_input.trim();
+      if (input === "") {
+        return;
+      }
+
+      // Global
+      let regex =
+        /^([a-zA-Z0-9-_]+)\/(codeql-extractor-[a-zA-Z0-9-_]+)(@[a-zA-Z0-9-_\.\/]*)?$/g;
+      let parts = regex.exec(input);
+
+      if (parts === null) {
+        throw new Error(
+          `Invalid extractor format of 'owner/repo[@version]': ${input} :: ${parts}`,
+        );
+      }
+      let extractor: Extractor;
+
+      if (parts.length === 3) {
+        extractor = {
+          organization: parts[1],
+          repository: parts[2],
+          path: "",
+        };
+      } else if (parts.length === 4) {
+        let version: string | undefined =
+          parts[3] == undefined ? undefined : parts[3].replace("@", "");
+        // If no version is provided, set it to undefined.
+        if (version === "") {
+          version = undefined;
+        }
+        extractor = {
+          organization: parts[1],
+          repository: parts[2],
+          path: toolcache.find(parts[2], "*") || "",
+          version,
+        };
+      } else {
+        throw new Error(
+          `Invalid extractor format of "owner/repo[@version]": "${parts}"`,
+        );
+      }
+
+      // Set Path in toolcache
+      extractor.path = toolcache.find(
+        extractor.repository,
+        extractor.version || "*",
+      );
+
+      // Check if the organization is trusted.
+      if (!TRUSTED_ORGANIZATIONS.includes(extractor.organization)) {
+        throw new Error(
+          `Organization "${extractor.organization}" is not trusted`,
+        );
+      }
+
+      result.push(extractor);
+    });
+  return result;
 }
 
 /**
  * Parse, download, and install all provided extractors.
  * @param input comma separated list of extractors
  * @param token authentication token for github
- * @returns 
+ * @returns
  */
-export async function getExtractors(input?: string | undefined, token?: string | undefined): Promise<Extractor[]> {
+export async function getExtractors(
+  codeql: CodeQL,
+  input: string | undefined,
+  logger?: Logger | undefined,
+  token?: string | undefined,
+): Promise<Extractor[]> {
+  if (logger === undefined) {
+    logger = getActionsLogger();
+  }
+
   if (input !== undefined && input !== "") {
     let extractors = parseExtractors(input);
+    logger.info(`External Extractors defined, starting download...`);
+
     extractors.forEach((extractor) => {
-        downloadExtractor(extractor, token || getRequiredInput("token"));
+      downloadExtractor(extractor, codeql, token || getRequiredInput("token"));
     });
     return extractors;
   }
@@ -109,12 +132,13 @@ export async function getExtractors(input?: string | undefined, token?: string |
 
 /**
  * Download CodeQL Extractor for the given extractor.
- * @param extractor 
- * @param token 
- * @returns 
+ * @param extractor
+ * @param token
+ * @returns
  */
 export async function downloadExtractor(
   extractor: Extractor,
+  codeql: CodeQL,
   token: string,
 ): Promise<Extractor> {
   const octokit = github.getOctokit(token);
@@ -150,7 +174,7 @@ export async function downloadExtractor(
   // use the toolcache to download the extractor
   var extractorPath = await toolcache.downloadTool(
     asset.url,
-    undefined,  // download to temp directory by default
+    undefined, // download to temp directory by default
     `token ${token}`,
     {
       accept: "application/octet-stream",
@@ -160,7 +184,10 @@ export async function downloadExtractor(
   core.debug(`Extracting extractor tar...`);
 
   extractor.path = await toolcache.extractTar(extractorPath, extractor.path);
-  core.debug(`Extracted extractor to ${extractor.path}`);
+  core.info(`Extracted extractor to ${extractor.path}`);
+
+  let path = await codeql.resolveExtractor(Language.community);
+  core.debug(`Resolved community extractor to ${path}`);
 
   core.debug(`Successfully installed extractor`);
   return extractor;

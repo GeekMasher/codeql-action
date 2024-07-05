@@ -457,7 +457,11 @@ export async function getDefaultConfig({
   logger,
 }: GetDefaultConfigInputs): Promise<Config> {
   // This has to be done before languages are loaded
-  const extractors = await getExtractors(extractorsInput || "");
+  const extractors = await getExtractors(
+    codeql,
+    extractorsInput,
+    logger,
+  );
 
   const languages = await getLanguages(
     codeql,
@@ -565,7 +569,7 @@ async function loadConfig({
     parsedYAML = await getRemoteConfig(configFile, apiDetails);
   }
 
-  const extractors = await getExtractors(extractorsInput || "");
+  const extractors = await getExtractors(codeql, extractorsInput, logger);
 
   const languages = await getLanguages(
     codeql,

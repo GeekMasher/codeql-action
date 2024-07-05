@@ -591,6 +591,11 @@ export async function getCodeQLForCmd(
       if (qlconfigFile !== undefined) {
         extraArgs.push(`--qlconfig-file=${qlconfigFile}`);
       }
+      if (config.extractors.length > 0) {
+        config.extractors.forEach((e) => {
+          extraArgs.push("--search-path", e.path);
+        });
+      }
 
       if (
         await util.codeQlVersionAtLeast(
